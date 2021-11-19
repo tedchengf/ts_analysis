@@ -1,0 +1,14 @@
+[build-system]
+
+requires = [
+   "numpy",
+   "numba",
+   "scipy",
+   "pandas",
+   "gensim",
+   "matplotlib",
+   "tqdm",
+   "sklearn"
+]
+
+build-backend = "setuptools.build_meta"
