@@ -1,8 +1,9 @@
-# Regression_Analysis_new.py
+# univariate.py
 
 import numpy as np
 from scipy import stats
 from tqdm import tqdm
+
 
 ###############################################################################
 #						   	subject_regression class		   				  #

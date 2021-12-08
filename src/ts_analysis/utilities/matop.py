@@ -1,4 +1,4 @@
-# aux.py
+# matops.py
 
 import numpy as np
 from numba import njit, jit, prange
@@ -28,16 +28,6 @@ def extract_tri_ind(arr_ind, mat_dim):
 def find_tri_dim(dim):
 	return (dim * dim - dim)//2
 
-def dict_arr_query(keys, dictionary):
-	values = []
-	missing_keys = []
-	for k in keys:
-		try:
-			values.append(dictionary[k])
-		except KeyError:
-			missing_keys.append(k)
-	return np.array(values), np.array(missing_keys)
-
 @jit
 def matrix_iteration(data_array, target_matrix, function, skip_diagonal=True):
 	mat_dim = target_matrix.shape[0]
@@ -51,40 +41,6 @@ def matrix_iteration(data_array, target_matrix, function, skip_diagonal=True):
 			for c in range(r, mat_dim):
 				target_matrix[r,c] = function(data_array[r], data_array[c])
 				target_matrix[c,r] = target_matrix[r,c]
-
-#------------------------		Distance Functions		-----------------------#
-
-def corr_dist(A):
-	return 1 - np.corrcoef(A)
-
-def abs_diff(A):
-	target_matrix = np.zeros((len(A), len(A)))
-	mat_dim = target_matrix.shape[0]
-	for r in range(mat_dim):
-		for c in range(r, mat_dim):
-			target_matrix[r,c] = np.absolute(np.subtract(A[r], A[c]))
-			target_matrix[c,r] = target_matrix[r,c]
-	return target_matrix
-
-def cond_diff(A):
-	target_matrix = np.ones((len(A), len(A)), dtype = bool)
-	mat_dim = target_matrix.shape[0]
-	for r in range(mat_dim):
-		for c in range(r, mat_dim):
-			target_matrix[r,c] = (A[r] == A[c])
-			target_matrix[c,r] = target_matrix[r,c]
-	return target_matrix
-
-def weighted_euclidian(A, weights):
-	matrices = []
-	for arr in A:
-		mat = np.zeros((len(arr), len(arr)))
-		matrix_iteration(arr, mat, squared_dist)
-		matrices.append(mat)
-	weighted_dist = np.zeros((len(arr), len(arr)))
-	for ind in range(len(weights)):
-		weighted_dist = weighted_dist + weights[ind] * matrices[ind]
-	return np.sqrt(weighted_dist)
 
 #------------------------	Numba Optimized Functions	-----------------------#
 

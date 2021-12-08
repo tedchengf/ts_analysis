@@ -1,7 +1,8 @@
 # rdm.py
 
-# import aux
-from . import aux
+from ts_analysis.utilities import aux
+from ts_analysis.utilities import matop
+
 
 import numpy as np
 from numba import njit, jit, prange
@@ -30,7 +31,7 @@ class RDM:
 		if tri is not None:
 			tri = np.array(tri)
 			assert len(tri.shape) == 1, "The parameter tri must be an instance of numpy.ndarray with exactly one dimension"
-			assert tri.shape[0] == aux.find_tri_dim(data.shape[0]), "The dimension of parameter tri does not agree with that of data"
+			assert tri.shape[0] == matop.find_tri_dim(data.shape[0]), "The dimension of parameter tri does not agree with that of data"
 			self.tri = tri.copy()
 		if trial_identifier is not None:
 			trial_identifier = np.array(trial_identifier)
@@ -65,7 +66,7 @@ class RDM:
 			arr_ind, missing_keys = aux.dict_arr_query(trial_ind, self.__trial_identifier_dict)
 			if len(missing_keys) != 0 and silence_warning == False:
 				warnings.warn("The following identifiers are undefined: " + str(missing_keys))
-		tri_ind = aux.extract_tri_ind(arr_ind, self.data.shape[0])
+		tri_ind = matop.extract_tri_ind(arr_ind, self.data.shape[0])
 		if return_type == "tri_arr": return self.tri[tri_ind].copy()
 		elif return_type == "index": return tri_ind
 		else: 
@@ -93,13 +94,13 @@ class RDM:
 	def __getitem__(self, key):
 		assert self.tri is not None, "tri uninitialized"
 		arr_ind = np.array(key)
-		tri_ind = aux.extract_tri_ind(arr_ind, self.data.shape[0])
+		tri_ind = matop.extract_tri_ind(arr_ind, self.data.shape[0])
 		return self.tri[tri_ind]
 
 	def __setitem__(self, key, value):
 		assert self.tri is not None, "tri uninitialized"		
 		arr_ind = np.array(key)
-		tri_ind = aux.extract_tri_ind(arr_ind, self.data.shape[0])
+		tri_ind = matop.extract_tri_ind(arr_ind, self.data.shape[0])
 		self.tri[tri_ind] = value
 
 	def copy(self, name = None):
@@ -109,7 +110,7 @@ class RDM:
 
 	def get_full_RDM(self, diag_val = 0):
 		RDM_dim = self.data.shape[0]
-		return aux.expand_lower_triangular(self.tri, self.data.shape[0], diag_val)
+		return matop.expand_lower_triangular(self.tri, self.data.shape[0], diag_val)
 
 ###############################################################################
 #								  tsRDM class		   						  #
@@ -134,7 +135,7 @@ class tsRDM:
 		if ts_tri is not None:
 			ts_tri = np.array(ts_tri)
 			assert len(ts_tri.shape) == 2, "The parameter trial_identifier must be an instance of numpy.ndarray with exactly 1 dimensions"
-			assert ts_tri.shape[1] == aux.find_tri_dim(ts_data.shape[0]), "The dimensions of parameter ts_tri do not agree with those of ts_data"
+			assert ts_tri.shape[1] == matop.find_tri_dim(ts_data.shape[0]), "The dimensions of parameter ts_tri do not agree with those of ts_data"
 			self.ts_tri = ts_tri.copy()
 		if trial_identifier is not None:
 			trial_identifier = np.array(trial_identifier)
@@ -190,13 +191,13 @@ class tsRDM:
 	def __getitem__(self, key):
 		assert self.ts_tri is not None, "ts_tri uninitialized"
 		arr_ind = np.array(key)
-		tri_ind = aux.extract_tri_ind(arr_ind, self.ts_data.shape[0])
+		tri_ind = matop.extract_tri_ind(arr_ind, self.ts_data.shape[0])
 		return self.ts_tri[:, tri_ind]
 
 	def __setitem__(self, key, value):
 		assert self.ts_tri is not None, "ts_tri uninitialized"		
 		arr_ind = np.array(key)
-		tri_ind = aux.extract_tri_ind(arr_ind, self.ts_data.shape[0])
+		tri_ind = matop.extract_tri_ind(arr_ind, self.ts_data.shape[0])
 		self.ts_tri[:, tri_ind] = value
 
 	def copy(self, name = None):
@@ -216,7 +217,7 @@ class tsRDM:
 			arr_ind, missing_keys = aux.dict_arr_query(trial_ind, self.__trial_identifier_dict)
 			if len(missing_keys) != 0 and silence_warning == False:
 				warnings.warn("The following identifiers are undefined: " + str(missing_keys))
-		tri_ind = aux.extract_tri_ind(arr_ind, self.ts_data.shape[0])
+		tri_ind = matop.extract_tri_ind(arr_ind, self.ts_data.shape[0])
 		if return_type == "tri_arr": return self.ts_tri[:,tri_ind].copy()
 		elif return_type == "index": return tri_ind
 		else: 
@@ -231,14 +232,14 @@ class tsRDM:
 		RDM_dim = self.ts_data.shape[0]
 		ts_RDM = []
 		for tri in self.ts_tri:
-			ts_RDM.append(aux.expand_lower_triangular(tri, self.ts_data.shape[0], diag_val))
+			ts_RDM.append(matop.expand_lower_triangular(tri, self.ts_data.shape[0], diag_val))
 		return np.array(ts_RDM)
 
 #------------------------------- Private Functions ---------------------------#
 
 	def __initialize_data(self, data, time_window, step, padding):
 		if time_window is None:
-			ts_tri = np.empty((data.shape[2], aux.find_tri_dim(data.shape[0])))	
+			ts_tri = np.empty((data.shape[2], matop.find_tri_dim(data.shape[0])))	
 			return data, ts_tri
 		else:
 			assert type(time_window) is int and type(step) is int, "time_window and step must be integers"
@@ -252,7 +253,7 @@ class tsRDM:
 				data = np.append(data, padding_data, axis = 2)
 			max_time = data.shape[2] - time_window
 			tw_start_pos = np.arange(0, data.shape[2] - time_window, step)
-			upper_tri_dim = aux.find_tri_dim(data.shape[0])
+			upper_tri_dim = matop.find_tri_dim(data.shape[0])
 			ts_tri = np.empty((max_time//step + 1, upper_tri_dim))
 			tw_data = np.empty((data.shape[0], data.shape[1]*time_window, max_time//step + 1))
 			# rearrange original data

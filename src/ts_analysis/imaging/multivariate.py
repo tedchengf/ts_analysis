@@ -1,4 +1,4 @@
-# RSA.py
+# multivariate.py
 
 import numpy as np
 from numba import njit, jit, prange
@@ -8,11 +8,9 @@ import warnings
 import matplotlib
 import matplotlib.pyplot as plt
 
-from . import rdm
-from . import aux
-
-# import RDM
-# import aux
+from ts_analysis.dataframes import rdm
+from ts_analysis.utilities import aux
+from ts_analysis.utilities import matop
 
 ###############################################################################
 #								  tsRSA class 								  #
@@ -102,10 +100,10 @@ class tsRSA:
 		return np.divide(upperbound, len(transformed_tsRDMs)), np.divide(lowerbound, len(transformed_tsRDMs))
 
 	def check_distribution(self):
-		count_RDM = rdm.RDM(np.empty((self.trial_identifier.shape[0])), "RDM overlap", tri = np.zeros((aux.find_tri_dim(self.trial_identifier.shape[0])), dtype = int), trial_identifier = self.trial_identifier)
+		count_RDM = rdm.RDM(np.empty((self.trial_identifier.shape[0])), "RDM overlap", tri = np.zeros((matop.find_tri_dim(self.trial_identifier.shape[0])), dtype = int), trial_identifier = self.trial_identifier)
 		for ts_RDM in self.target_tsRDMs:
 			curr_trial_ind = aux.dict_arr_query(ts_RDM.trial_identifier, self.__trial_identifier_dict)[0]
-			curr_tri_ind = aux.extract_tri_ind(curr_trial_ind, len(self.trial_identifier))
+			curr_tri_ind = matop.extract_tri_ind(curr_trial_ind, len(self.trial_identifier))
 			count_RDM.tri[curr_tri_ind] += 1
 		return self.trial_distribution.copy(), count_RDM
 
@@ -185,11 +183,11 @@ class tsRSA:
 		return tar_tsRDMs, cand_RDMs
 
 	def __average_tsRDM(self, ts_RDMs):
-		count_RDM = rdm.RDM(np.zeros((self.trial_identifier.shape[0]), dtype = int), "RDM overlap", tri = np.zeros((aux.find_tri_dim(self.trial_identifier.shape[0])), dtype = int), trial_identifier = self.trial_identifier)
-		sum_tsRDM = rdm.tsRDM(np.empty((self.trial_identifier.shape[0], 1, 1)), "Sum RDM", ts_tri = np.zeros((ts_RDMs[0].ts_tri.shape[0],aux.find_tri_dim(self.trial_identifier.shape[0]))), trial_identifier = self.trial_identifier)
+		count_RDM = rdm.RDM(np.zeros((self.trial_identifier.shape[0]), dtype = int), "RDM overlap", tri = np.zeros((matop.find_tri_dim(self.trial_identifier.shape[0])), dtype = int), trial_identifier = self.trial_identifier)
+		sum_tsRDM = rdm.tsRDM(np.empty((self.trial_identifier.shape[0], 1, 1)), "Sum RDM", ts_tri = np.zeros((ts_RDMs[0].ts_tri.shape[0],matop.find_tri_dim(self.trial_identifier.shape[0]))), trial_identifier = self.trial_identifier)
 		for ts_RDM in ts_RDMs:
 			curr_trial_ind, missing_keys = aux.dict_arr_query(ts_RDM.trial_identifier, self.__trial_identifier_dict)
-			curr_tri_ind = aux.extract_tri_ind(curr_trial_ind, len(self.trial_identifier))
+			curr_tri_ind = matop.extract_tri_ind(curr_trial_ind, len(self.trial_identifier))
 			count_RDM.data[curr_trial_ind] += 1
 			count_RDM.tri[curr_tri_ind] += 1
 			sum_tsRDM.ts_tri[:, curr_tri_ind] += ts_RDM.ts_tri
@@ -228,6 +226,19 @@ class tsRSA:
 #								 RSA_results class 							  #
 ###############################################################################
 
+def collapse_RSA_results(all_RSA_results, name, collapse_dimension = "target", target_names = None, candidate_names = None):
+	if collapse_dimension == "target":
+		target_names = all_RSA_results[0].target_names.copy()
+		base_results = all_RSA_results[0].slice(candidate_names = candidate_names)
+		for ind in range(1, len(all_RSA_results)):
+			if candidate_names is not None: assert all_RSA_results[0].candidate_names == all_RSA_results[ind].candidate_names, "Candidate names mismatch between instances of all_RSA_results"
+			target_names = np.append(target_names,all_RSA_results[ind].target_names)
+			curr_result = all_RSA_results[ind].slice(candidate_names = candidate_names)
+			base_results = np.append(base_results, curr_result, axis = 1)
+		if candidate_names is None: candidate_names = all_RSA_results[0].candidate_names
+		return RSA_results(base_results, target_names, candidate_names)
+	return None
+
 class RSA_results:
 	def __init__(self, results, target_names, candidate_names):
 		self.name = None
@@ -247,15 +258,14 @@ class RSA_results:
 		self.candidate_names = np.array(candidate_names)
 		assert len(results.shape) == 3, "The parameter results must have three dimensions"
 		assert results.shape[0] == len(candidate_names), "The parameter candidate_names must match the first dimension of the results"
-		assert results.shape[1] == len(target_names), "The parameter target_names must match the first dimension of the results"
+		assert results.shape[1] == len(target_names), "The parameter target_names must match the second dimension of the results"
 		self.__target_dict = dict(zip(target_names,np.arange(results.shape[1])))
 		self.__candidate_dict = dict(zip(candidate_names,np.arange(results.shape[0])))
 
+	# TODO: make the interpretation of None input more consistant
 	def plot(self, title = None, candidate_names = None, target_names = None, bounds = None, fig = None, start_end = None, interval = 100, axis = [None, None, None, None], colors = None, font_size = 6):
-		if len(candidate_names) > 0:
-			data_result = self.slice(candidate_names, target_names = target_names, return_type = "instance")
-			data = np.average(data_result.results, axis = 1)
-		else: data = []
+		data_result = self.slice(candidate_names, target_names = target_names, return_type = "instance")
+		data = np.average(data_result.results, axis = 1)
 		matplotlib.rcParams.update({'font.size': font_size})
 		if fig is None:
 			fig = plt.figure(figsize = (6.4, 4.8))
@@ -271,8 +281,9 @@ class RSA_results:
 			# x_range = data.shape[1]
 			x_range = self.results.shape[2]
 			step = int(round(x_range / (len(label) - 1)))
+			tick_num = len(np.arange(0, x_range, step = step, dtype = int))
 			ax.set_xticks(np.arange(0, x_range, step = step, dtype = int))
-			ax.set_xticklabels(label)	
+			ax.set_xticklabels(label[:tick_num])	
 		if bounds is not None:
 			assert bounds in ("all", "upper", "lower"), "If defined, the parameter bounds must be one from (all, upper, lower)"
 			if bounds == "all" or bounds == "upper":
@@ -281,7 +292,7 @@ class RSA_results:
 			if bounds == "all" or bounds == "lower":	
 				assert self.lowerbound is not None,"The lowerbound is undefined"
 				ax.plot(self.lowerbound, label = "lowerbound", color = "black", linestyle = ":")
-		if len(candidate_names) > 0:
+		if len(data_result.candidate_names) > 0:
 			for c_ind, c_name in enumerate(data_result.candidate_names):
 				if colors is not None:
 					ax.plot(data[c_ind], label = c_name, color = colors[c_ind])
@@ -290,7 +301,6 @@ class RSA_results:
 		ax.legend()
 		plt.close()
 		return fig
-
 		
 	def slice(self, candidate_names = None, target_names = None, return_type = "arr"):
 		assert return_type in ("arr", "instance"), "The parameter return_type must be one from (arr, instance)"
@@ -321,6 +331,7 @@ class RSA_results:
 		for k in self.candidate_names:
 			candidate_str += "\n    - " + k
 		return type_str + "\n" + name_str + "\n" + results_str + "\n" + candidate_str
+
 
 ###############################################################################
 #							   Support functions		   					  #

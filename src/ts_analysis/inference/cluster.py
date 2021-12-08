@@ -68,7 +68,7 @@ Example
 True
 >>> var_CPerm, var_matrix, var_pandas_out = CPerm("OLD", A, B, 1000)
 >>> print(var_pandas_out)
-        POS   Pos Label     Tval    Pval
+		POS   Pos Label     Tval    Pval
 1  (47, 52)  (307, 350)  13.1322  0.1095
 '''
 
