@@ -29,6 +29,8 @@ The subpackage <code>ts_analysis.analysis</code> is targeted for data analysis. 
 #### dataframes
 The subpackage <code>ts_analysis.dataframes</code> contains various classes for holding data. <code>ts_analysis.dataframes.rdm</code> contains specialized classes `RDM` and `tsRDM`  that are optimized for storing and acessing elements in the **Representational Dissimilarity Matrix (RDM)**. <code>ts_analysis.dataframes.dframe</code> contains general-purpose dataframes for storing and accessing data. While classes like `DFrame` and `Dim` allow users to define an one dimensional arrays as annotations for each dimension of a `numpy.ndarray`, the class `cond` provides a convinent dataframe for storing and accessing dimensions, especially in scenarios where the user need to get intersections or unions of multiple dimensions.
 
+For more information, please refer to this [documentation](src/ts_analysis/dataframes/Documentation.md).
+
 #### imaging
 
 The subpackage `ts_analysis.imaging` contains classes and functions that apply various imaging analyses. `ts_analysis.imaging.univariate` contains univariate analyses such as **Linear Mixed-Effects Regressions (LMERs)** models and **Event-Related Potential **. `ts_analysis.imaging.multivariate` contains multivariate analyses such as **Representational Similarity Analysis (RSA)** and its time-series variant.
