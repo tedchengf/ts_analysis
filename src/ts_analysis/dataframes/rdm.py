@@ -2,6 +2,7 @@
 
 from ts_analysis.utilities import aux
 from ts_analysis.utilities import matop
+from ts_analysis.dataframes import dframe
 
 
 import numpy as np
@@ -14,14 +15,14 @@ import warnings
 
 class RDM:
 	# data should be in the dimension of (trial,) or (triangular)
-	# trial_identifier should be in the dimension of (trial,)
-	def __init__(self, data, name, tri = None, trial_identifier = None):
+	# identifier should be in the dimension of (trial,)
+	def __init__(self, data, name, tri = None, identifier = None):
 		self.name = None 					# Name of the current instance
 		self.data = None 					# 1D raw data
 		self.tri = None 					# 1D Triangular data of RDM
-		self.trial_identifier = None 		# 1D identifier array
+		self.identifier = None 		# 1D identifier array
 
-		self.__trial_identifier_dict = None # Dictionary of identifiers
+		self.__identifier_dict = None # Dictionary of identifiers
 
 		# Initialization
 		self.name = name
@@ -33,16 +34,15 @@ class RDM:
 			assert len(tri.shape) == 1, "The parameter tri must be an instance of numpy.ndarray with exactly one dimension"
 			assert tri.shape[0] == matop.find_tri_dim(data.shape[0]), "The dimension of parameter tri does not agree with that of data"
 			self.tri = tri.copy()
-		if trial_identifier is not None:
-			trial_identifier = np.array(trial_identifier)
-			assert len(trial_identifier.shape) == 1, "The parameter trial_identifier must be an instance of numpy.ndarray with exactly three dimensions"
-			assert len(trial_identifier) == self.data.shape[0], "The trial dimension of the parameter trial_identifier does not match the first dimension of the parameter data"
-			self.trial_identifier = np.array(trial_identifier).copy()
-			self.__trial_identifier_dict = dict(zip(trial_identifier, np.arange(len(trial_identifier))))
+		if identifier is not None:
+			identifier = np.array(identifier)
+			assert len(identifier.shape) == 1, "The parameter identifier must be an instance of numpy.ndarray with exactly three dimensions"
+			assert len(identifier) == self.data.shape[0], "The trial dimension of the parameter identifier does not match the first dimension of the parameter data"
+			self.identifier = np.array(identifier).copy()
+			self.__identifier_dict = dict(zip(identifier, np.arange(len(identifier))))
 
 	def fill(self, DFunc, update = True):
 		dis_mat = DFunc(self.data.copy())
-		print (dis_mat)
 		dim = dis_mat.shape[0]
 		tri = np.empty(((self.data.shape[0]*self.data.shape[0]-self.data.shape[0])//2), dtype = dis_mat.dtype)
 		for row in range(dim):
@@ -56,25 +56,25 @@ class RDM:
 # 								Other Basic Functions						   #
 
 	# Note: if return_instance = False, the tri array returned is a shallow copy
-	def slice(self, trial_ind, extract_type = "index", return_type = "tri_arr", silence_warning = False):
-		assert extract_type in ("index", "identifier"), "The parameter extract_type must be one from (index, identifier)"
+	def slice(self, trial_ind, ktype = "index", return_type = "tri_arr", silence_warning = False):
+		assert ktype in ("index", "identity"), "The parameter ktype must be one from (index, identity)"
 		assert return_type in ("tri_arr", "index", "instance"), "The parameter return_type must be one from (tri_arr, index, instance)"
-		if extract_type == "index":
+		if ktype == "index":
 			arr_ind = trial_ind
 		else:
-			assert self.trial_identifier is not None, "The trial_identifier is not defined"
-			arr_ind, missing_keys = aux.dict_arr_query(trial_ind, self.__trial_identifier_dict)
+			assert self.identifier is not None, "The identifier is not defined"
+			arr_ind, missing_keys = aux.dict_arr_query(trial_ind, self.__identifier_dict)
 			if len(missing_keys) != 0 and silence_warning == False:
 				warnings.warn("The following identifiers are undefined: " + str(missing_keys))
 		tri_ind = matop.extract_tri_ind(arr_ind, self.data.shape[0])
 		if return_type == "tri_arr": return self.tri[tri_ind].copy()
 		elif return_type == "index": return tri_ind
 		else: 
-			if self.trial_identifier is not None:
-				subset_keys = self.trial_identifier[arr_ind]
+			if self.identifier is not None:
+				subset_keys = self.identifier[arr_ind]
 			else:
 				subset_keys = None
-			copy_RDM = RDM(self.data[arr_ind], name = self.name, tri = self.tri[tri_ind], trial_identifier = subset_keys)
+			copy_RDM = RDM(self.data[arr_ind], name = self.name, tri = self.tri[tri_ind], identifier = subset_keys)
 			return copy_RDM
 
 	def __repr__(self):
@@ -85,10 +85,10 @@ class RDM:
 			tri_str = "Traingular Array: " + str(self.tri.shape)
 		else:
 			tri_str = "Triangular Array: Uninitialized"
-		if self.trial_identifier is not None:
-			identifier_str = "Trial Identifier: " + str(self.trial_identifier.shape)
+		if self.identifier is not None:
+			identifier_str = "Identifier: " + str(self.identifier.shape)
 		else:
-			identifier_str = "Trial Identifier: Undefined"
+			identifier_str = "Identifier: Undefined"
 		return type_str + "\n" + name_str + "\n" + data_str + "\n" + tri_str + "\n" + identifier_str
 
 	def __getitem__(self, key):
@@ -106,11 +106,18 @@ class RDM:
 	def copy(self, name = None):
 		if name is not None:
 			name = self.name
-		return RDM(self.data, name, tri = self.tri, trial_identifier = self.trial_identifier)
+		return RDM(self.data, name, tri = self.tri, identifier = self.identifier)
 
 	def get_full_RDM(self, diag_val = 0):
 		RDM_dim = self.data.shape[0]
 		return matop.expand_lower_triangular(self.tri, self.data.shape[0], diag_val)
+
+	def redefine_identifier(self, new_identifier):
+		new_identifier = np.array(new_identifier)
+		assert new_identifier.shape == self.identifier.shape, "incorrect identifier dimension"
+		self.identifier = new_identifier.copy()
+		self.__identifier_dict = dict(zip(new_identifier, np.arange(len(new_identifier))))
+
 
 ###############################################################################
 #								  tsRDM class		   						  #
@@ -118,14 +125,14 @@ class RDM:
 
 class tsRDM:
 	# ts_data should be in the dimension of (trial, channel, time points)
-	# trial_identifier should be in the dimension of (trial,)
-	def __init__(self, ts_data, name, ts_tri = None, trial_identifier = None):
+	# identifier should be in the dimension of (trial,)
+	def __init__(self, ts_data, name, ts_tri = None, identifier = None):
 		self.name = None 					# Name of the current instance
 		self.ts_data = None 				# 3D time-series data
 		self.ts_tri = None 					# 2D time-series triangular data
-		self.trial_identifier = None 		# 1D identifier array
+		self.identifier = None 		# 1D identifier array
 
-		self.__trial_identifier_dict = None # Dictionary of identifiers
+		self.__identifier_dict = None # Dictionary of identifiers
 
 		# Initialization
 		self.name = name
@@ -134,15 +141,15 @@ class tsRDM:
 		self.ts_data = ts_data.copy()
 		if ts_tri is not None:
 			ts_tri = np.array(ts_tri)
-			assert len(ts_tri.shape) == 2, "The parameter trial_identifier must be an instance of numpy.ndarray with exactly 1 dimensions"
+			assert len(ts_tri.shape) == 2, "The parameter identifier must be an instance of numpy.ndarray with exactly 1 dimensions"
 			assert ts_tri.shape[1] == matop.find_tri_dim(ts_data.shape[0]), "The dimensions of parameter ts_tri do not agree with those of ts_data"
 			self.ts_tri = ts_tri.copy()
-		if trial_identifier is not None:
-			trial_identifier = np.array(trial_identifier)
-			assert len(trial_identifier.shape) == 1, "The parameter trial_identifier must be an instance of numpy.ndarray with exactly three dimensions"
-			assert len(trial_identifier) == self.ts_data.shape[0], "The trial dimension of the parameter trial_identifier does not match the first dimension of the parameter data"
-			self.trial_identifier = np.array(trial_identifier).copy()
-			self.__trial_identifier_dict = dict(zip(trial_identifier, np.arange(len(trial_identifier))))
+		if identifier is not None:
+			identifier = np.array(identifier)
+			assert len(identifier.shape) == 1, "The parameter identifier must be an instance of numpy.ndarray with exactly three dimensions"
+			assert len(identifier) == self.ts_data.shape[0], "The trial dimension of the parameter identifier does not match the first dimension of the parameter data"
+			self.identifier = np.array(identifier).copy()
+			self.__identifier_dict = dict(zip(identifier, np.arange(len(identifier))))
 
 	def fill(self, time_window = None, step = None, padding = True, DFunc = None, update = True):
 		# Initialize data for later processing (molding them into correct arrangements)
@@ -167,7 +174,7 @@ class tsRDM:
 			curr_tri = self.ts_tri[tri_ind, :]
 			transformed_ts_tri[tri_ind, :] = TFunc(curr_tri)
 		if return_type == "instance":
-			copy_tsRDM = tsRDM(self.ts_data, name = self.name, ts_tri = transformed_ts_tri, trial_identifier = self.trial_identifier)
+			copy_tsRDM = tsRDM(self.ts_data, name = self.name, ts_tri = transformed_ts_tri, identifier = self.identifier)
 			return copy_tsRDM
 		else:
 			return transformed_ts_tri.copy()
@@ -182,10 +189,10 @@ class tsRDM:
 			ts_tri_str = "Time Series Traingular Array: " + str(self.ts_tri.shape)
 		else:
 			ts_tri_str = "Time Series Triangular Array: Uninitialized"
-		if self.trial_identifier is not None:
-			identifier_str = "Trial Identifier: " + str(self.trial_identifier.shape)
+		if self.identifier is not None:
+			identifier_str = "Identifier: " + str(self.identifier.shape)
 		else:
-			identifier_str = "Trial Identifier: Undefined"
+			identifier_str = "Identifier: Undefined"
 		return type_str + "\n" + name_str + "\n" + ts_data_str + "\n" + ts_tri_str + "\n" + identifier_str
 
 	def __getitem__(self, key):
@@ -203,29 +210,29 @@ class tsRDM:
 	def copy(self, name = None):
 		if name is not None:
 			name = self.name
-		return tsRDM(self.ts_data, name, ts_tri = self.ts_tri, trial_identifier = self.trial_identifier)
+		return tsRDM(self.ts_data, name, ts_tri = self.ts_tri, identifier = self.identifier)
 
 	# Note: if return_instance = False, the tri array returned is a shallow copy
-	def slice(self, trial_ind, extract_type = "index", return_type = "tri_arr", silence_warning = False):
-		assert extract_type in ("index", "identifier"), "The parameter extract_type must be one from (index, identifier)"
+	def slice(self, trial_ind, ktype = "index", return_type = "tri_arr", silence_warning = False):
+		assert ktype in ("index", "identity"), "The parameter ktype must be one from (index, identity)"
 		assert return_type in ("tri_arr", "index", "instance"), "The parameter return_type must be one from (tri_arr, index, instance)"
 		assert self.ts_tri is not None, "ts_tri is uninitialized"
-		if extract_type == "index":
+		if ktype == "index":
 			arr_ind = trial_ind
 		else:
-			assert self.trial_identifier is not None, "The trial_identifier is not defined"
-			arr_ind, missing_keys = aux.dict_arr_query(trial_ind, self.__trial_identifier_dict)
+			assert self.identifier is not None, "The identifier is not defined"
+			arr_ind, missing_keys = aux.dict_arr_query(trial_ind, self.__identifier_dict)
 			if len(missing_keys) != 0 and silence_warning == False:
 				warnings.warn("The following identifiers are undefined: " + str(missing_keys))
 		tri_ind = matop.extract_tri_ind(arr_ind, self.ts_data.shape[0])
 		if return_type == "tri_arr": return self.ts_tri[:,tri_ind].copy()
 		elif return_type == "index": return tri_ind
 		else: 
-			if self.trial_identifier is not None:
-				subset_keys = self.trial_identifier[arr_ind]
+			if self.identifier is not None:
+				subset_keys = self.identifier[arr_ind]
 			else:
 				subset_keys = None
-			copy_tsRDM = tsRDM(self.ts_data[arr_ind,:,:], name = self.name, ts_tri = self.ts_tri[:,tri_ind], trial_identifier = subset_keys)
+			copy_tsRDM = tsRDM(self.ts_data[arr_ind,:,:], name = self.name, ts_tri = self.ts_tri[:,tri_ind], identifier = subset_keys)
 			return copy_tsRDM
 
 	def get_full_RDM(self, diag_val = 0):
@@ -234,6 +241,12 @@ class tsRDM:
 		for tri in self.ts_tri:
 			ts_RDM.append(matop.expand_lower_triangular(tri, self.ts_data.shape[0], diag_val))
 		return np.array(ts_RDM)
+
+	def redefine_identifier(self, new_identifier):
+		new_identifier = np.array(new_identifier)
+		assert new_identifier.shape == self.identifier.shape, "incorrect identifier dimension"
+		self.identifier = new_identifier.copy()
+		self.__identifier_dict = dict(zip(new_identifier, np.arange(len(new_identifier))))
 
 #------------------------------- Private Functions ---------------------------#
 

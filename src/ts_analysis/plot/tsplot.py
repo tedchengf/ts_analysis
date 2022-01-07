@@ -86,7 +86,7 @@ def visualize_sig(highlight_intervals, slot_num, names, start_end = None, interv
 #	show: a boolean that denote whether the plot will be shown. Default = False
 #	save_name: a save name to save the plot. If save_name = None, the plot will
 #		not be saved. Default = None
-def plot_1D(Data, names, title = None, start_end = None, interval = 100, axis = [None, None, None, None], colors = None, highlight_intervals = None, highlight_colors = None, figsize = (6.4, 4.8), show = False, save_name = None):
+def plot_1D(Data, names, title = None, start_end = None, interval = 100, axis = [None, None, None, None], colors = None, linestyles = None, highlight_intervals = None, highlight_colors = None, figsize = (6.4, 4.8), show = False, save_name = None):
 	assert type(Data) is np.ndarray and len(Data.shape) == 2, "Data must be an instance of numpy.ndarray with exactly 2 dimensions"
 	assert type(names) is np.ndarray, "names must be an instance of numpy.ndarray"
 	assert len(axis) == 4, "axis must have exactly 4 elements"
@@ -99,9 +99,13 @@ def plot_1D(Data, names, title = None, start_end = None, interval = 100, axis = 
 		corr_results = Data[var_index]
 		if colors is not None:
 			curr_color = colors[var_index]
-			ax.plot(corr_results, label = var_name, color = curr_color)
-		else:
-			ax.plot(corr_results, label = var_name)
+		else: curr_color = None
+		if linestyles is not None:
+			curr_style = linestyles[var_index]
+		else: curr_style = None
+		ax.plot(corr_results, label = var_name, color = curr_color, linestyle = curr_style)
+		# else:
+		# 	ax.plot(corr_results, label = var_name)
 	if title is not None:
 		ax.set_title(title)
 	if start_end is not None:

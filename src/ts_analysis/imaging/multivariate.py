@@ -11,24 +11,25 @@ import matplotlib.pyplot as plt
 from ts_analysis.dataframes import rdm
 from ts_analysis.utilities import aux
 from ts_analysis.utilities import matop
+from ts_analysis.dataframes.dframe import DFrame
 
 ###############################################################################
 #								  tsRSA class 								  #
 ###############################################################################
 
 class tsRSA:
-	def __init__(self, target_tsRDMs, candidate_RDMs, name, trial_identifier):
+	def __init__(self, target_tsRDMs, candidate_RDMs, name, identifier):
 		self.name = None
 		self.target_tsRDMs = None
 		self.candidate_RDMs = None
-		self.trial_identifier = None
+		self.identifier = None
 		self.trial_distribution = None
 
 		self.__target_dict = None
 		self.__candidate_dict = None
-		self.__trial_identifier_dict = None
+		self.__identifier_dict = None
 
-		self.__initialize_instance(target_tsRDMs, candidate_RDMs, name, trial_identifier)
+		self.__initialize_instance(target_tsRDMs, candidate_RDMs, name, identifier)
 
 	def RSA(self, target_names = None, candidate_names = None, interpolation = "subject", show_progress = False):
 		if show_progress == True:
@@ -50,7 +51,7 @@ class tsRSA:
 				target_results = []
 				for tsRDM in tar_tsRDMs:
 					target_tri = tsRDM.ts_tri
-					candidate_tri = cand.slice(tsRDM.trial_identifier, extract_type = "identifier")
+					candidate_tri = cand.slice(tsRDM.identifier, ktype = "identity")
 					curr_result = np.empty(tsRDM.ts_tri.shape[0])
 					quick_pearsonr_tstri_b(target_tri, candidate_tri, curr_result)
 					target_results.append(curr_result)
@@ -60,12 +61,15 @@ class tsRSA:
 		else:
 			t_names = []
 			for ts_RDM in tar_tsRDMs: t_names.append(ts_RDM.name)
+		results = np.array(results)
+		print(results.shape)
+		# return DFrame(results, ["candidates", "targets", "time points"], [c_names, t_names, np.arange(results.shape[2])])
 		return RSA_results(results, t_names, c_names)
 
 	def estimate_upper_lower_bounds(self, TFunc, target_names = None,  show_progress = False):
 		if show_progress == True:
 			print ("\nEstimating Bounds")
-		assert self.trial_identifier is not None, "The trial_identifier is undefined"
+		assert self.identifier is not None, "The identifier is undefined"
 		# Step 1: Apply transformation to the target RDMs
 		tar_tsRDMs = self.__assemble_data(target_names, None)[0]
 		pbar = tqdm(total = 3, disable = not show_progress)
@@ -82,8 +86,8 @@ class tsRSA:
 		lowerbound = np.zeros((sum_tsRDM.ts_tri.shape[0]))
 		for ts_RDM in transformed_tsRDMs:
 			temp_results = np.zeros((sum_tsRDM.ts_tri.shape[0]))
-			curr_tstri = sum_tsRDM.slice(ts_RDM.trial_identifier, extract_type = "identifier")
-			curr_count = count_RDM.slice(ts_RDM.trial_identifier, extract_type = "identifier")
+			curr_tstri = sum_tsRDM.slice(ts_RDM.identifier, ktype = "identity")
+			curr_count = count_RDM.slice(ts_RDM.identifier, ktype = "identity")
 			# estimate upperbound
 			upperbound_tstri = np.divide(curr_tstri, curr_count)
 			quick_pearsonr_tstri(ts_RDM.ts_tri, upperbound_tstri, temp_results)
@@ -100,39 +104,39 @@ class tsRSA:
 		return np.divide(upperbound, len(transformed_tsRDMs)), np.divide(lowerbound, len(transformed_tsRDMs))
 
 	def check_distribution(self):
-		count_RDM = rdm.RDM(np.empty((self.trial_identifier.shape[0])), "RDM overlap", tri = np.zeros((matop.find_tri_dim(self.trial_identifier.shape[0])), dtype = int), trial_identifier = self.trial_identifier)
+		count_RDM = rdm.RDM(np.empty((self.identifier.shape[0])), "RDM overlap", tri = np.zeros((matop.find_tri_dim(self.identifier.shape[0])), dtype = int), identifier = self.identifier)
 		for ts_RDM in self.target_tsRDMs:
-			curr_trial_ind = aux.dict_arr_query(ts_RDM.trial_identifier, self.__trial_identifier_dict)[0]
-			curr_tri_ind = matop.extract_tri_ind(curr_trial_ind, len(self.trial_identifier))
+			curr_trial_ind = aux.dict_arr_query(ts_RDM.identifier, self.__identifier_dict)[0]
+			curr_tri_ind = matop.extract_tri_ind(curr_trial_ind, len(self.identifier))
 			count_RDM.tri[curr_tri_ind] += 1
 		return self.trial_distribution.copy(), count_RDM
 
 # 								Other Basic Functions						   #
 
-	def slice(self, trial_ind, extract_type = "index", target_names = None, candidate_names = None):
-		assert extract_type in ("index", "identifier"), "The parameter extract_type must be one from (index, identifier)"
-		if extract_type == "index":
-			extract_identifier = self.trial_identifier[trial_ind]
+	def slice(self, trial_ind, ktype = "index", target_names = None, candidate_names = None):
+		assert ktype in ("index", "identity"), "The parameter ktype must be one from (index, identity)"
+		if ktype == "index":
+			extract_identifier = self.identifier[trial_ind]
 		else:
 			extract_identifier = trial_ind
 		tar_tsRDMs, cand_RDMs = self.__assemble_data(target_names, candidate_names)
 		new_target_tsRDMs = []
 		for ts_RDM in tar_tsRDMs:
-			new_target_tsRDMs.append(ts_RDM.slice(extract_identifier, extract_type = "identifier", return_type = "instance", silence_warning = True))
+			new_target_tsRDMs.append(ts_RDM.slice(extract_identifier, ktype = "identity", return_type = "instance", silence_warning = True))
 		new_candidate_RDMs = []
 		for cRDM in cand_RDMs:
-			new_candidate_RDMs.append(cRDM.slice(extract_identifier, extract_type = "identifier", return_type = "instance"))
+			new_candidate_RDMs.append(cRDM.slice(extract_identifier, ktype = "identity", return_type = "instance"))
 		return tsRSA(new_target_tsRDMs, new_candidate_RDMs, self.name, extract_identifier)
 
 	def copy(self, name = None):
 		if name is None:
 			name = self.name
-		return tsRSA(self.target_tsRDMs.copy(), self.candidate_RDMs.copy(), name, self.trial_identifier)
+		return tsRSA(self.target_tsRDMs.copy(), self.candidate_RDMs.copy(), name, self.identifier)
 
 	def __repr__(self):
 		type_str = "Type: tsRSA"
 		name_str = "Data Name: " + self.name
-		trial_str = "Trial: " + str(len(self.trial_identifier))
+		trial_str = "Trial: " + str(len(self.identifier))
 		target_str = "Target tsRDMs: " + str(len(self.target_tsRDMs))
 		candidate_str = "Candidate RDMs:"
 		for k in self.__candidate_dict.keys():
@@ -141,22 +145,22 @@ class tsRSA:
 
 #------------------------------- Private Functions ---------------------------#
 
-	def __initialize_instance(self, target_tsRDMs, candidate_RDMs, name, trial_identifier):
+	def __initialize_instance(self, target_tsRDMs, candidate_RDMs, name, identifier):
 		self.name = name
-		assert len(trial_identifier) == candidate_RDMs[0].data.shape[0]
+		assert len(identifier) == candidate_RDMs[0].data.shape[0]
 		# Initialize trial identifiers
-		self.trial_identifier = np.array(trial_identifier)
-		assert len(trial_identifier.shape) == 1, "The parameter trial_identifier must be an instance of numpy.ndarray with exactly 1 dimensions"
-		self.__trial_identifier_dict = dict(zip(trial_identifier, np.arange(len(trial_identifier))))
+		self.identifier = np.array(identifier)
+		assert len(identifier.shape) == 1, "The parameter identifier must be an instance of numpy.ndarray with exactly 1 dimensions"
+		self.__identifier_dict = dict(zip(identifier, np.arange(len(identifier))))
 		# Initialize tsRDMs and trial distribution
 		self.target_tsRDMs = np.array(target_tsRDMs)
-		self.trial_distribution = np.zeros((len(self.target_tsRDMs), len(self.trial_identifier)), dtype = bool)
+		self.trial_distribution = np.zeros((len(self.target_tsRDMs), len(self.identifier)), dtype = bool)
 		self.__target_dict = {}
 		for i, ts_RDM in enumerate(target_tsRDMs):
 			assert isinstance(ts_RDM, rdm.tsRDM), "The parameter target_tsRDM must be a list of tsRDM instances"
 			self.__target_dict.update({ts_RDM.name: i})
-			curr_dist, missing_keys = aux.dict_arr_query(ts_RDM.trial_identifier, self.__trial_identifier_dict)
-			assert len(missing_keys) == 0, "The target_tsRDMs contain identifiers uninitialized in the current instance"
+			curr_dist, missing_keys = aux.dict_arr_query(ts_RDM.identifier, self.__identifier_dict)
+			assert len(missing_keys) == 0, "The target_tsRDMs contain identifiers uninitialized in the current instance: " + str(missing_keys)
 			self.trial_distribution[i][curr_dist] = True
 		self.candidate_RDMs = np.array(candidate_RDMs)
 		self.__candidate_dict = {}
@@ -183,11 +187,11 @@ class tsRSA:
 		return tar_tsRDMs, cand_RDMs
 
 	def __average_tsRDM(self, ts_RDMs):
-		count_RDM = rdm.RDM(np.zeros((self.trial_identifier.shape[0]), dtype = int), "RDM overlap", tri = np.zeros((matop.find_tri_dim(self.trial_identifier.shape[0])), dtype = int), trial_identifier = self.trial_identifier)
-		sum_tsRDM = rdm.tsRDM(np.empty((self.trial_identifier.shape[0], 1, 1)), "Sum RDM", ts_tri = np.zeros((ts_RDMs[0].ts_tri.shape[0],matop.find_tri_dim(self.trial_identifier.shape[0]))), trial_identifier = self.trial_identifier)
+		count_RDM = rdm.RDM(np.zeros((self.identifier.shape[0]), dtype = int), "RDM overlap", tri = np.zeros((matop.find_tri_dim(self.identifier.shape[0])), dtype = int), identifier = self.identifier)
+		sum_tsRDM = rdm.tsRDM(np.empty((self.identifier.shape[0], 1, 1)), "Sum RDM", ts_tri = np.zeros((ts_RDMs[0].ts_tri.shape[0],matop.find_tri_dim(self.identifier.shape[0]))), identifier = self.identifier)
 		for ts_RDM in ts_RDMs:
-			curr_trial_ind, missing_keys = aux.dict_arr_query(ts_RDM.trial_identifier, self.__trial_identifier_dict)
-			curr_tri_ind = matop.extract_tri_ind(curr_trial_ind, len(self.trial_identifier))
+			curr_trial_ind, missing_keys = aux.dict_arr_query(ts_RDM.identifier, self.__identifier_dict)
+			curr_tri_ind = matop.extract_tri_ind(curr_trial_ind, len(self.identifier))
 			count_RDM.data[curr_trial_ind] += 1
 			count_RDM.tri[curr_tri_ind] += 1
 			sum_tsRDM.ts_tri[:, curr_tri_ind] += ts_RDM.ts_tri
@@ -210,7 +214,7 @@ class tsRSA:
 				target_results = []
 				for tsRDM in tar_tsRDMs:
 					target_tri = tsRDM.ts_tri
-					candidate_tri = cand.slice(tsRDM.trial_identifier, extract_type = "identifier")
+					candidate_tri = cand.slice(tsRDM.identifier, ktype = "identity")
 					curr_result = np.empty(tsRDM.ts_tri.shape[0])
 					quick_pearsonr_tstri_b(target_tri, candidate_tri, curr_result)
 					target_results.append(curr_result)
