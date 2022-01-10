@@ -170,4 +170,114 @@ True
 
 Admittedly, this makes the `WrapperDim` a less well-defined and conceptually-clear class, only to reduce one dot operation. Also, in this manner the user cannot directly iterate through the content in a dimension of the ndarray without going back to the **index mode**. I might change this syntax to be more standard in the future, or not.
 
- 
+## ts_analysis.dataframes.dframe.Dim
+
+A class for managing a list of identifiers.
+
+**Class Initialization **
+
+- <code>**ts_analysis.dataframes.dframe.Dim**(name, identifier, identity_dict = None)</code>
+
+  - **Parameters**:	 **name : *str***
+
+    <div style="padding-left: 137px;">
+    The name of the object
+    </div>
+    ​							 **identifier : *iterable***
+    
+    <div style="padding-left: 137px;">
+        A list of identifiers. There should be no repetition in the identifier, otherwise a <code><b>KeyError</b></code> will be raised
+    </div>
+
+​										   **identity_dict : *dict, optional***
+
+<div style="padding-left: 197px;">
+    A dictionary with keys as the identifiers and values as their relative position in the identifier list. If <code>None</code> is passed a new dict will be constructed upon initialization
+</div>
+
+
+
+**Class Attributes**
+
+- **`name`**: a `str` recording the name of the current object
+- **`identifier`**: a numpy 1D array holding all identifiers. Note that all identifiers must share the same data type, and no repetition is allowed
+
+
+
+**Class Methods**
+
+- <code>**slice**(key, ktype = "identity", loose_match = False, return_self = True)</code>
+  Provide the indexes of the `keys` in `identifier` as specified by the user
+  
+  - **Parameters**:	 **key : *None, iterable, or slice***
+  
+    <div style="padding-left: 137px;">
+    A key obj recognizable by the python <code>__getitem__</code> interpreter (anything you can noramlly put in <code>[]</code> when indexing an array). Determine what keys to be used
+    </div>
+  
+    ​							**ktype : *{'identity', 'index'}, optional***
+    
+    <div style="padding-left: 137px;">
+        Determines how a key is matched. If matched by <b><i>'identity'</i></b>, the method will select the identifiers matched by <b>key</b>. If matched by <b><i>'index'</i></b>, the method will select the identifiers in indexes specified by <b>key</b> (which is the same as <code>identifier[key]</code>)
+    </div>
+    ​							**loose_match : *bool, optional***
+    
+    <div style="padding-left: 137px;">
+        Determines whether the method will look for exact matches for the keys. Will only take effects when <b>ktype = <i>"identity"</i></b>. If <code>True</code>, any keys not found in the identifier will raise a <code><b>KeyError</b></code>. Otherwise, any the <code><b>KeyError</b></code> will be silenced and any missing keys will be returned.
+    </div>
+    ​							**return_self : *bool, optional***
+    
+    <div style="padding-left: 137px;">
+        Determines whether the method will also return itself.
+    </div>
+    
+  - **Returns**: 		   **arr_ind : *numpy ndarray***
+  
+    <div style="padding-left: 137px;">
+        A numpy array of indexes that represents the positions of keys in <code>identifier</code>
+    </div>
+    
+    
+    ​							**Dim : *ts_analysis.dataframes.dframe.Dim, optional***
+    
+    <div style="padding-left: 137px;">
+        A deep copy of the current object after being sliced. Will only appear if <b>return_self = <i>True</i></b> 
+    </div>
+  
+- <code>**exclude**(key, ktype = "identity", return_self = True)</code>
+  Exclude the current Dim as specified by `key`
+
+  - **Parameters**:	 **key : *None, iterable, or slice***
+  
+    <div style="padding-left: 137px;">
+    A key obj recognizable by the python <code>__getitem__</code> interpreter (anything you can noramlly put in <code>[]</code> when indexing an array). Determines what keys to be excluded.
+    </div>
+  
+    ​							**ktype : *{'identity', 'index'}, optional***
+  
+    <div style="padding-left: 137px;">
+        Determines how a key is matched. If matched by <b><i>'identity'</i></b>, the method will select the identifiers matched by <b>key</b>. If matched by <b><i>'index'</i></b>, the method will select the identifiers in indexes specified by <b>key</b> (which is the same as <code>identifier[key]</code>)
+    </div>
+  
+    ​							**return_self : *bool, optional***
+  
+    <div style="padding-left: 137px;">
+        Determines whether the method will also return itself.
+    </div>
+  
+  - **Returns**: 		   **arr_ind : *numpy ndarray***
+  
+    <div style="padding-left: 137px;">
+        A numpy array of indexes that represents the positions of keys in <code>identifier</code>
+    </div>
+  
+    ​							**Dim : *ts_analysis.dataframes.dframe.Dim, optional***
+  
+    <div style="padding-left: 137px;">
+        A deep copy of the current object after being sliced. Will only appear if <b>return_self = <i>True</i></b> 
+    </div>
+  
+  
+
+​							
+
