@@ -62,7 +62,7 @@ class tsRSA:
 			t_names = []
 			for ts_RDM in tar_tsRDMs: t_names.append(ts_RDM.name)
 		results = np.array(results)
-		print(results.shape)
+		# print(results.shape)
 		# return DFrame(results, ["candidates", "targets", "time points"], [c_names, t_names, np.arange(results.shape[2])])
 		return RSA_results(results, t_names, c_names)
 

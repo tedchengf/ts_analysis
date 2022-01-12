@@ -177,6 +177,15 @@ class CPerm_diff:
 		std = np.std(self.A, axis = 0)
 		return mean, std
 
+	def get_sig_intervals(self, threshold=0.05, pos_offset=0):
+		if self.cluster_pvals is None: return {self.Var_name: []}
+		sig_mask = np.array(self.cluster_pvals <= threshold, dtype = bool)
+		if sum(sig_mask) == 0: return {self.Var_name: []}
+		return {self.Var_name: np.add(self.cluster_pos[sig_mask].copy(), pos_offset)}
+
+	def __repr__(self):
+		return self.Var_name + "\n" + self.output_pandas.__repr__()
+
 #								Private Functions							  #
 	
 	# Find the t and p values for each column
@@ -379,13 +388,27 @@ def label_clusters(mask, min_span, labels):
 #							  Auxiliary Functions							  #
 ###############################################################################
 
-def assemble_highlight_intervals(output_dfs, var_colors=None, p_thres=0.05, pos_offset=0):
+# def summarize_sig(var_name, output_df, p_thres=0.05, res_dict = None, pos_offset=0):
+# 	if res_dict is None: res_dict = dict({})
+# 	sig_intervals = []
+# 	if type(output_df) is not not pandas.core.frame.DataFrame:
+# 		res_dict.update({var_names:sig_intervals})
+# 	else:
+# 		for cluster_ind in range(len(output_df["POS"])):
+# 			if output_df["Pval"][cluster_ind + 1] <= p_thres:
+# 				curr_pos = output_df["POS"][cluster_ind + 1]
+# 				curr_pos = np.add(curr_pos, pos_offset)
+# 				sig_intervals.append()
+
+def assemble_highlight_intervals(output_dfs, var_names, var_colors=None, p_thres=0.05, pos_offset=0):
 	if len(output_dfs) == 0:
 		return None, None
 	if var_colors is not None:
 		assert len(var_colors) == len(output_dfs), "The number of var_colors specified must match the number of variables contained in output_dfs"
 	highlight_intervals = []
 	highlight_colors = []
+	highlight_vars = []
+	print(output_dfs[0])
 	for var_ind, var_df in enumerate(output_dfs):
 		if type(var_df) is not pandas.core.frame.DataFrame: continue
 		for cluster_ind in range(len(var_df["POS"])):
@@ -397,7 +420,8 @@ def assemble_highlight_intervals(output_dfs, var_colors=None, p_thres=0.05, pos_
 					highlight_colors.append(var_colors[var_ind])
 				else:
 					highlight_colors.append("red")
+				highlight_vars.append(var_names[var_ind])
 	if len(highlight_intervals) == 0:
-		return None, None
+		return None, None, None
 	else:
-		return np.array(highlight_intervals), np.array(highlight_colors)
+		return np.array(highlight_intervals), np.array(highlight_vars), np.array(highlight_colors)

@@ -139,7 +139,7 @@ class Dim:
 				if key.start is None and key.stop is None and key.step is None:
 					return self.identifier
 				raise KeyError("ktype identity does not support slice indexing")
-			if type(key) is str:
+			if type(key) is str or type(key) is np.str_:
 				return [key]
 			try:
 				iterator = iter(key)
@@ -149,7 +149,7 @@ class Dim:
 		else:
 			if key is None: return np.arange(len(self.identifier),dtype = int)
 			if type(key) is slice: return aux.slice_handler(key, len(self.identifier))
-			if type(key) is str:
+			if type(key) is str or type(key) is np.str_:
 				return [key]
 			try:
 				return list(iter(key))
@@ -250,8 +250,13 @@ class DFrame:
 		if dim1 != dim2:
 			self.data = np.swapaxes(self.data, dim1, dim2)
 			self.shape = self.data.shape
-			self.__dims[[dim1, dim2]] = self.__dims[[dim2, dim1]]
+			dim_obj_1 = self.__dims[dim1]
+			dim_obj_2 = self.__dims[dim2]
+			self.__dims[dim1] = dim_obj_2
+			self.__dims[dim2] = dim_obj_1
+			# self.__dims[[dim1, dim2]] = self.__dims[[dim2, dim1]]
 			self.__dim_dict = self.__rebuild_dim_dict(self.__dims)
+		return self
 
 	def redefine_dim(self, dim, name = None, identifier = None):
 		dim_ind = self.__dim_ind(dim)
@@ -262,6 +267,7 @@ class DFrame:
 		self.__dims[dim_ind] = new_dim
 		self.__dim_dict[name] = self.__dim_dict.pop(self.dim_names[dim_ind])
 		self.dim_names[dim_ind] = name
+		return self
 
 	def copy(self):
 		new_dims = []

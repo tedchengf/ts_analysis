@@ -25,42 +25,46 @@ import numpy as np
 #	show: a boolean that denote whether the plot will be shown. Default = False
 #	save_name: a save name to save the plot. If save_name = None, the plot will
 #		not be saved. Default = None
-def visualize_sig(highlight_intervals, slot_num, names, start_end = None, interval = 100, sig_color = "orange", aspect = 1.5, show = False, save_name = None):
-	assert len(names) == len(highlight_intervals), "The first dimension of highlight_interval must match the length of variable names"
-	assert type(sig_color) is str or type(sig_color) is list, "sig_color must be either a string or a list"
+def visualize_sig(intervals_dict, slot_num, start_end = None, interval = 100, sig_color = None, aspect = 1.5, exclude_empty = True):
 	from matplotlib import colors
 	# Set discrete cmap
-	if type(sig_color) is list:
-		assert (len(sig_color) == len(names))
+	if sig_color is None:
+		sig_color = plt.rcParams["axes.prop_cycle"].by_key()['color'][:len(intervals_dict)]
+	if type(sig_color) is list or type(sig_color) is np.ndarray:
+		assert (len(sig_color) == len(intervals_dict))
 		cmap = colors.ListedColormap(sig_color)
-		bounds = np.append(np.arange(1, len(sig_color), step = 0.5), len(sig_color))
+		bounds = np.append(np.arange(0.5, len(sig_color)-0.5, step = 1), len(sig_color))
 		norm = colors.BoundaryNorm(bounds, cmap.N)
 	else:
 		cmap = colors.ListedColormap(["grey", sig_color])
 		bounds = [0,0.5,1]
 		norm = colors.BoundaryNorm(bounds, cmap.N)
 	# assemble significance array
-	sig_array = np.zeros((len(names), slot_num))
-	for var_ind, var_name in enumerate(names):
-		var_hi = highlight_intervals[var_ind]
-		if len(var_hi) != 0:
-			for interval in var_hi:
-				for i in range(interval[0],interval[1]):
-					sig_array[var_ind, i] = 1*(var_ind + 1)
-	sig_array[np.where(sig_array < 1)] = np.nan
+	sig_arrays = []
+	sig_vars = []
+	for var_ind, var in enumerate(intervals_dict):
+		var_hl = intervals_dict[var]
+		curr_sig = np.zeros(slot_num)
+		if len(var_hl) > 0:
+			for interval in var_hl:
+				for i in range(interval[0], interval[1]):
+					curr_sig[i] = 1*(var_ind + 1)
+		else:
+			if exclude_empty == True: continue
+		sig_arrays.append(curr_sig)
+		sig_vars.append(var)
+	if len(sig_arrays) == 0: return False
+	sig_arrays = np.array(sig_arrays)
+	sig_arrays[np.where(sig_arrays < 1)] = np.nan
 	plt.rc('font', size = 3) 
 	fig = plt.figure(figsize=(6.4,2))
 	ax = fig.gca()
-	ax.imshow(sig_array, cmap=cmap, norm=norm, interpolation = "none", aspect = aspect)
-	ax.set_yticks(np.arange(len(names), dtype = int))
-	ax.set_yticklabels(names)
+	ax.imshow(sig_arrays, cmap=cmap, norm=norm, interpolation="none", aspect=aspect)
+	ax.set_yticks(np.arange(len(sig_vars), dtype = int))
+	ax.set_yticklabels(sig_vars)
 	ax.axes.get_xaxis().set_visible(False)
 	ax.spines["top"].set_visible(False)
 	ax.spines["bottom"].set_visible(False)
-	if show == True:
-		fig.show()
-	if save_name is not None:
-		fig.savefig(save_name, format = "png", dpi = 1000, transparent = True)
 	plt.close()
 	return fig
 
